@@ -1,0 +1,21 @@
+data:
+  dataset: cifar10 # choose from cifar10, cifar100, ImageNet16-120
+  data_path: ./data
+enable_valid: True 
+
+rand_seed: -1 # if negative, using a random seed
+workers: 4
+
+# api
+use_api: True
+eval_candidate_num: 100
+
+# log
+load_path: null
+log_dir: ./output/search/
+print_freq: 100
+
+wandb:
+  entity: null
+  use_wandb: False
+  project: NATS-Bench

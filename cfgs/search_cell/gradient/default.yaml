@@ -1,0 +1,28 @@
+arch_learning_rate: 3.0e-4
+arch_weight_decay: 1.0e-3
+arch_eps: 1.e-8
+drop_path_rate: null
+
+
+lr: 0.025
+lr_min: 0.001
+
+criterion:
+  name: softmax
+
+optimizer:
+  name: sgd
+  momentum: 0.9
+  nesterov: True
+  decay: 0.0005
+
+scheduler:
+  name: cos
+  gamma: 0.99
+  gammas: null
+  milstones: null
+
+epochs: 50
+warmup: 0
+batch_size: 300
+test_batch_size: 16384

@@ -1,0 +1,9 @@
+search_space: tss
+
+model:
+  max_nodes: 4
+  channels: 16
+  num_cells: 5
+  track_running_stats: False
+  affine: True
+  use_bn: True
