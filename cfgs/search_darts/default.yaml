@@ -1,3 +1,17 @@
+search_space: darts
+
+model:
+  super_type: nasnet-super
+  name: DARTS 
+  C: 16
+  N: 2
+  steps: 4
+  multiplier: 4
+  stem_multiplier: 3
+  track_running_stats: True # TODO: why True this time. 
+  affine: False 
+  train_arch_parameters: True 
+
 arch_learning_rate: 3.0e-4
 arch_weight_decay: 1.0e-3
 arch_eps: 1.e-8

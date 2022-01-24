@@ -18,7 +18,7 @@ from xautodl.procedures import (
 from xautodl.utils import get_model_infos, obtain_accuracy
 from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
 from xautodl.models import get_cell_based_tiny_net, get_search_spaces
-from nas_201_api import NASBench201API as API
+# from nas_201_api import NASBench201API as API
 
 
 def search_func(
@@ -184,8 +184,8 @@ def main(xargs):
     logger.log("search-space [{:} ops] : {:}".format(len(search_space), search_space))
     if xargs.arch_nas_dataset is None:
         api = None
-    else:
-        api = API(xargs.arch_nas_dataset)
+    # else:
+    #     api = API(xargs.arch_nas_dataset)
     logger.log("{:} create API = {:} done".format(time_string(), api))
 
     last_info, model_base_path, model_best_path = (

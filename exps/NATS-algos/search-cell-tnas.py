@@ -25,7 +25,7 @@ from xautodl.procedures import (
 from xautodl.utils import count_parameters_in_MB, obtain_accuracy
 from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
 from xautodl.models import get_cell_based_tiny_net, get_search_spaces
-from xautodl.models.cell_operations import  NAS_BENCH_201, NONE_ENCODING
+from xautodl.models.cell_operations import  NAS_BENCH_201
 from nats_bench import create
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -34,6 +34,8 @@ from utils import config, set_seed, setup_logger, Wandb, generate_exp_directory,
 # [[3, 2, 3, 1, 2, 2], [3, 2, 3, 1, 3, 2], [3, 3, 3, 1, 3, 3], [3, 3, 3, 1, 3, 2], [3, 3, 3, 1, 2, 3]]
 
 global global_epoch
+
+NONE_ENCODING = [1, 0, 0, 0, 0]
 
 
 def train_func(
@@ -249,8 +251,7 @@ def main(config):
             space=search_space,
             affine=bool(config.model.affine),
             track_running_stats=bool(config.model.track_running_stats),
-            arch_parameter=config.arch_parameter, 
-            use_bn=config.model.use_bn
+            train_arch_parameters=config.model.train_arch_parameters, 
         ),
         None,
     )
@@ -262,7 +263,7 @@ def main(config):
 
     # warmup. default: False
     config.epochs = config.warmup_epochs
-    config.lr = config.warmup_lr
+    config.LR = config.warmup_lr
     config.lr_min = config.warmup_lr_min
     w_optimizer, w_scheduler, criterion = get_optim_scheduler(
         supernet.weights, config
@@ -303,8 +304,7 @@ def main(config):
         config.data.dataset,
         "configs/nas-benchmark/",
         (config.warmup_batch_size, config.test_batch_size),
-        config.workers,
-        config.get('debug', False)
+        config.workers
     )
 
     # start training
@@ -328,7 +328,6 @@ def main(config):
         },
         os.path.join(config.ckpt_dir, config.logname + '_supernet.pth'),
         logger,
-        verbose=False
     )
 
     logger.log("========== Start TNAS Decoupling Searching ============= ")
@@ -342,14 +341,13 @@ def main(config):
         "configs/nas-benchmark/",
         (config.train_batch_size, config.test_batch_size),
         config.workers,
-        config.get('debug', False)
     )
     (test_val_idx, argbest) = (0, np.argmin) if 'loss' in config.metric else (1, np.argmax)
 
     epoch = 0
     config.epochs = config.train_epochs
-    config.lr = config.train_lr
-    config.lr_min = config.train_lr_min
+    config.LR = config.train_lr
+    config.LR_min = config.train_lr_min
     n_edges = len(supernet.edge2index)
     depth = config.d_a  # architecture tree expansion depth
 
@@ -526,7 +524,7 @@ if __name__ == "__main__":
             f'N{config.model.max_nodes}', f'C{config.model.channels}', f'L{config.model.num_cells}',
             f'WE{config.warmup_epochs}', f'WBS{config.warmup_batch_size}',
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
-            f'LR{config.lr}',
+            f'LR{config.LR}',
             f'{config.metric}', f'd_a{config.d_a}', f'd_o{config.d_o}',
             f'order_{config.order}'
             ]

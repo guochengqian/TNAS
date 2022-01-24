@@ -30,6 +30,8 @@ def get_cell_based_tiny_net(config):
         config = dict2config(config, None)  # to support the argument being a dict
     super_type = getattr(config, "super_type", "basic")
     group_names = ["DARTS-V1", "DARTS-V2", "GDAS", "SETN", "ENAS", "RANDOM", "generic"]
+    train_arch_parameters = getattr(config, "train_arch_parameters", True)
+
     if super_type == "basic" and config.name in group_names:
         from .cell_searchs import nas201_super_nets as nas_super_nets
 
@@ -42,10 +44,11 @@ def get_cell_based_tiny_net(config):
                 config.space,
                 config.affine,
                 config.track_running_stats,
+                train_arch_parameters
             )
         except:
             return nas_super_nets[config.name](
-                config.C, config.N, config.max_nodes, config.num_classes, config.space
+                config.C, config.N, config.max_nodes, config.num_classes, config.space, train_arch_parameters
             )
     elif super_type == "search-shape":
         from .shape_searchs import GenericNAS301Model

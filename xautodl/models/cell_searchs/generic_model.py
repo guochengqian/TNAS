@@ -96,15 +96,18 @@ class Controller(nn.Module):
 
 class GenericNAS201Model(nn.Module):
     def __init__(
-        self, C, N, max_nodes, num_classes, search_space, affine, track_running_stats
+        self, C, N, max_nodes, num_classes, search_space, affine, track_running_stats,
+            train_arch_parameters=True,  
     ):
         super(GenericNAS201Model, self).__init__()
         self._C = C
         self._layerN = N
         self._max_nodes = max_nodes
+
         self._stem = nn.Sequential(
-            nn.Conv2d(3, C, kernel_size=3, padding=1, bias=False), nn.BatchNorm2d(C)
-        )
+                nn.Conv2d(min(3, C), C, kernel_size=3, padding=1, bias=False), nn.BatchNorm2d(C)
+            )
+
         layer_channels = [C] * N + [C * 2] + [C * 2] * N + [C * 4] + [C * 4] * N
         layer_reductions = [False] * N + [True] + [False] * N + [True] + [False] * N
         C_prev, num_edge, edge2index = C, None, None
@@ -113,7 +116,7 @@ class GenericNAS201Model(nn.Module):
             zip(layer_channels, layer_reductions)
         ):
             if reduction:
-                cell = ResNetBasicblock(C_prev, C_curr, 2)
+                cell = ResNetBasicblock(C_prev, C_curr, 2, affine, track_running_stats)
             else:
                 cell = SearchCell(
                     C_prev,
@@ -144,10 +147,17 @@ class GenericNAS201Model(nn.Module):
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Linear(C_prev, num_classes)
         self._num_edge = num_edge
+
         # algorithm related
-        self.arch_parameters = nn.Parameter(
-            1e-3 * torch.randn(num_edge, len(search_space))
-        )
+        self.train_arch_parameters = train_arch_parameters
+        if self.train_arch_parameters:
+            self.arch_parameters = nn.Parameter(
+                1e-3 * torch.randn(num_edge, len(search_space))
+            )
+            self.normalizer = 'SOFTMAX'
+        else:
+            self.arch_parameters = torch.ones(num_edge, len(search_space), requires_grad=False)
+            self.normalizer = 'AVG'
         self._mode = None
         self.dynamic_cell = None
         self._tau = None
@@ -164,9 +174,10 @@ class GenericNAS201Model(nn.Module):
                 self.edge2index, self._op_names, self._max_nodes
             )
         else:
-            self.arch_parameters = nn.Parameter(
-                1e-3 * torch.randn(self._num_edge, len(self._op_names))
-            )
+            if self.train_arch_parameters:
+                self.arch_parameters = nn.Parameter(
+                    1e-3 * torch.randn(self._num_edge, len(self._op_names))
+                ) 
             if algo == "gdas":
                 self._tau = 10
 
@@ -230,6 +241,10 @@ class GenericNAS201Model(nn.Module):
         with torch.no_grad():
             if self._algo == "enas":
                 return "w_pred :\n{:}".format(self.controller.w_pred.weight)
+            elif self._algo == 'tnas':
+                return "arch-parameters :\n{:}".format(
+                    self.arch_parameters.cpu()
+                )
             else:
                 return "arch-parameters :\n{:}".format(
                     nn.functional.softmax(self.arch_parameters, dim=-1).cpu()
@@ -316,11 +331,16 @@ class GenericNAS201Model(nn.Module):
                 hardwts_cpu = hardwts.detach().cpu()
             return hardwts, hardwts_cpu, index, "GUMBEL"
         else:
-            alphas = nn.functional.softmax(self.arch_parameters, dim=-1)
+            if self.normalizer.lower() == 'softmax':
+                alphas = nn.functional.softmax(self.arch_parameters, dim=-1)
+            else:
+                none_zero = torch.sum(self.arch_parameters[:, 1:], dim=1, keepdim=True)  # weight non zero operations
+                none_zero[none_zero == 0] = 1.
+                alphas = self.arch_parameters / none_zero
             index = alphas.max(-1, keepdim=True)[1]
             with torch.no_grad():
                 alphas_cpu = alphas.detach().cpu()
-            return alphas, alphas_cpu, index, "SOFTMAX"
+            return alphas, alphas_cpu, index, self.normalizer
 
     def forward(self, inputs):
         alphas, alphas_cpu, index, verbose_str = self.normalize_archp()

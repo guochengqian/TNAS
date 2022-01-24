@@ -21,7 +21,7 @@ from xautodl.procedures import (
 from xautodl.utils import get_model_infos, obtain_accuracy
 from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
 from xautodl.models import get_cell_based_tiny_net, get_search_spaces
-from nas_201_api import NASBench201API as API
+# from nas_201_api import NASBench201API as API
 
 
 def _concat(xs):

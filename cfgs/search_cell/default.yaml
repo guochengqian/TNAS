@@ -6,4 +6,32 @@ model:
   num_cells: 5
   track_running_stats: False
   affine: True
-  use_bn: True
+  train_arch_parameters: True
+
+arch_learning_rate: 3.0e-4
+arch_weight_decay: 1.0e-3
+arch_eps: 1.e-8
+drop_path_rate: null
+
+
+criterion: Softmax
+
+LR: 0.025
+
+# optimizer config.
+optim: SGD
+momentum: 0.9
+nesterov: True
+decay: 0.0005
+
+# Scheuler config.
+scheduler: cos
+gamma: 0.99
+gammas: null
+milstones: null
+eta_min: 0.001
+
+epochs: 50
+warmup: 0
+batch_size: 300
+test_batch_size: 16384

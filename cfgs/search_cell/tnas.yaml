@@ -1,7 +1,8 @@
 algo: tnas # choose from "darts-v2", "gdas", "setn", "random", "enas", "tnas"
-arch_parameter: False # there is no alpha parameter, always set to False when using TNAS.
 
-group: True # using operation tree or not? 
+model:
+  train_arch_parameters: False # there is no alpha parameter, always set to False when using TNAS.
+group: True # using operation tree or not?
 d_o: 1  # expansion depth on operation tree 
 d_a: 6  # expansion depth on architecture tree 
 order: widthwise # architecture tree branch order. random, depthwise, or widthwise (default)
