@@ -6,6 +6,7 @@ import torch.nn as nn
 from copy import deepcopy
 from typing import List, Text, Dict
 from .search_cells import NASNetSearchCell as SearchCell
+from ..cell_operations import DARTS_SPACE
 
 
 # The macro structure is based on NASNet
@@ -80,7 +81,6 @@ class TNASNetworkDARTS(nn.Module):
         self.global_pooling = nn.AdaptiveAvgPool2d(1)
         self.classifier = nn.Linear(C_prev, num_classes)
         
-        
         self.train_arch_parameters = train_arch_parameters
         if self.train_arch_parameters:
             self.arch_normal_parameters = nn.Parameter(
@@ -130,32 +130,30 @@ class TNASNetworkDARTS(nn.Module):
         )
 
     def genotype(self) -> Dict[Text, List]:
-        def _parse(weights):
+        def _parse(weights, k=2):
             gene = []
+            n = 2
+            start = 0
             for i in range(self._steps):
-                edges = []
-                for j in range(2 + i):
-                    node_str = "{:}<-{:}".format(i, j)
-                    ws = weights[self.edge2index[node_str]]
-                    for k, op_name in enumerate(self.op_names):
-                        if op_name == "none":
-                            continue
-                        edges.append((op_name, j, ws[k]))
-                # (TODO) xuanyidong:
-                # Here the selected two edges might come from the same input node.
-                # And this case could be a problem that two edges will collapse into a single one
-                # due to our assumption -- at most one edge from an input node during evaluation.
-                edges = sorted(edges, key=lambda x: -x[-1])
-                selected_edges = edges[:2]
-                gene.append(tuple(selected_edges))
+                end = start + n
+                edges = weights[start:end].clone()
+                edge_max, primitive_indices = torch.topk(edges[:, 1:], 1)
+                topk_edge_values, topk_edge_indices = torch.topk(edge_max.view(-1), k)  # get the topk input states of each node
+                node_gene = []
+                for edge_idx in topk_edge_indices:
+                    prim_idx = primitive_indices[edge_idx]
+                    prim = self.op_names[prim_idx]
+                    node_gene.append((prim, edge_idx.item()))
+                start = end
+                n += 1
             return gene
 
         with torch.no_grad():
             gene_normal = _parse(
-                torch.softmax(self.arch_normal_parameters, dim=-1).cpu().numpy()
+                self.arch_normal_parameters
             )
             gene_reduce = _parse(
-                torch.softmax(self.arch_reduce_parameters, dim=-1).cpu().numpy()
+                self.arch_reduce_parameters
             )
         return {
             "normal": gene_normal,
@@ -191,10 +189,9 @@ class TNASNetworkDARTS(nn.Module):
                 ww = reduce_w
             else:
                 ww = normal_w
-            s0, s1 = s1, cell.forward_darts(s0, s1, ww)
-        out = self.lastact(s1)
+            s0, s1 = s1, cell.forward_tnas(s0, s1, ww)
+        out = self.lastact(s1)  # TODO: why need this last activation layer?
         out = self.global_pooling(out)
         out = out.view(out.size(0), -1)
         logits = self.classifier(out)
-
         return out, logits

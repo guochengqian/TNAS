@@ -239,7 +239,7 @@ def get_datasets(name, root, cutout):
 
 
 def get_nas_search_loaders(
-    train_data, valid_data, dataset, config_root, batch_size, workers
+    train_data, valid_data, dataset, config_root, batch_size, workers, debug=False
 ):
     if isinstance(batch_size, (list, tuple)):
         batch, test_batch = batch_size
@@ -254,6 +254,9 @@ def get_nas_search_loaders(
         )  # search over the proposed training and validation set
         # logger.log('Load split file from {:}'.format(split_Fpath))      # they are two disjoint groups in the original CIFAR-10 training set
         # To split data
+        if debug:
+            train_split = train_split[:256]
+            valid_split = valid_split[:256]
         xvalid_data = deepcopy(train_data)
         if hasattr(xvalid_data, "transforms"):  # to avoid a print issue
             xvalid_data.transforms = valid_data.transform

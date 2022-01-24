@@ -18,25 +18,23 @@ arch_eps: 1.e-8
 drop_path_rate: null
 
 
-lr: 0.025
-lr_min: 0.001
+criterion: Softmax
 
-criterion:
-  name: softmax
+LR: 0.025
 
-optimizer:
-  name: sgd
-  momentum: 0.9
-  nesterov: True
-  decay: 0.0005
+# optimizer config.
+optim: SGD
+momentum: 0.9
+nesterov: True
+decay: 0.0005
 
-scheduler:
-  name: cos
-  gamma: 0.99
-  gammas: null
-  milstones: null
+# Scheuler config.
+scheduler: cos
+gamma: 0.99
+gammas: null
+milstones: null
+eta_min: 0.001
 
 epochs: 50
 warmup: 0
-batch_size: 300
-test_batch_size: 16384
+

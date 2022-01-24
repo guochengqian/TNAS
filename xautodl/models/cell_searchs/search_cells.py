@@ -166,6 +166,15 @@ class MixedOp(nn.Module):
     def forward_darts(self, x, weights):
         return sum(w * op(x) for w, op in zip(weights, self._ops))
 
+    def forward_tnas(self, x, weights):
+        # to faster training, do not make forwarding pass if weight is zero.
+        # assert the first operation is zero.
+        out = 0.
+        for w, op in zip(weights[1:], self._ops[1:]):
+            if w != 0:
+                out += w*op(x)
+        return out
+
 
 # Learning Transferable Architectures for Scalable Image Recognition, CVPR 2018
 class NASNetSearchCell(nn.Module):
@@ -249,3 +258,21 @@ class NASNetSearchCell(nn.Module):
             states.append(sum(clist))
 
         return torch.cat(states[-self._multiplier :], dim=1)
+
+    def forward_tnas(self, s0, s1, weightss):
+        s0 = self.preprocess0(s0)
+        s1 = self.preprocess1(s1)
+
+        states = [s0, s1]
+        for i in range(self._steps):
+            clist = []
+            for j, h in enumerate(states):
+                node_str = "{:}<-{:}".format(i, j)
+                weights = weightss[self.edge2index[node_str]]
+                # make sure weights not all zeros.
+                if len(torch.nonzero(weights[1:])) > 0:
+                    op = self.edges[node_str]
+                    clist.append(op.forward_tnas(h, weights))
+            states.append(sum(clist))
+
+        return torch.cat(states[-self._multiplier:], dim=1)

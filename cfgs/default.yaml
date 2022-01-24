@@ -19,3 +19,4 @@ wandb:
   entity: null
   use_wandb: False
   project: NATS-Bench
+

@@ -330,7 +330,7 @@ def main(config):
         logger,
     )
 
-    logger.log("========== Start TNAS Decoupling Searching ============= ")
+    logger.log("\n\n========== Start TNAS Branching ============= ")
     supernet.set_cal_mode('joint')
     del train_loader
     torch.cuda.empty_cache()
@@ -384,6 +384,7 @@ def main(config):
             group_metrics = []
             group_info = {}
             for model_idx, (model_c, group_idx_list) in enumerate(zip(group_models, group_indicies)):
+                # TODO: set seed here?
                 logger.log(f"===> Stage: {stage}/{stages} Step: {step}/{steps} "
                            f"Train and Evaluate {model_idx}/{len(group_indicies)}\n"
                            f"{group_idx_list} for {edge_indicies}")
