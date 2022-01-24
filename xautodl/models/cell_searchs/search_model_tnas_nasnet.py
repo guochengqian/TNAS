@@ -6,7 +6,6 @@ import torch.nn as nn
 from copy import deepcopy
 from typing import List, Text, Dict
 from .search_cells import NASNetSearchCell as SearchCell
-from ..cell_operations import DARTS_SPACE
 
 
 # The macro structure is based on NASNet
@@ -146,6 +145,7 @@ class TNASNetworkDARTS(nn.Module):
                     node_gene.append((prim, edge_idx.item()))
                 start = end
                 n += 1
+                gene.append(tuple(node_gene))
             return gene
 
         with torch.no_grad():

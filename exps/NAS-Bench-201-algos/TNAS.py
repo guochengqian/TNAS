@@ -408,7 +408,7 @@ def main(config):
             depths = range(2, 2 + config.model.steps)
             check_valid = True
         else:
-            depths = [config.depth] * int(np.ceil(n_edges / config.depth))
+            depths = [config.d_a] * int(np.ceil(n_edges / config.d_a))
             check_valid = False
         logger.log(f'alphas: \nalpha_normal:\n{supernet.arch_normal_parameters}; '
                    f'\nalpha_reduce:\n{supernet.arch_reduce_parameters}')
@@ -521,10 +521,10 @@ def main(config):
                     f'Finish {cell} Cell, Stage {stage}, Step {step}, current group list: \n {group_lists} \n'
                     f'current edge_flag: {edge_flag}')
                 torch.cuda.empty_cache()
+
         # if config.re_init and stage == 0:
         #     supernet.apply(init_weights)
     # the final post procedure : count the time
-    # todo: debug genotype.
     genotype = supernet.genotype()
     print(f'===> Finished searching! The final normal alpha is: \n {supernet.arch_normal_parameters}\n'
           f'The final reduce alpha is:\n {supernet.arch_reduce_parameters}\n'
