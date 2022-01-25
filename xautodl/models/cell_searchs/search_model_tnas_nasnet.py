@@ -140,7 +140,7 @@ class TNASNetworkDARTS(nn.Module):
                 topk_edge_values, topk_edge_indices = torch.topk(edge_max.view(-1), k)  # get the topk input states of each node
                 node_gene = []
                 for edge_idx in topk_edge_indices:
-                    prim_idx = primitive_indices[edge_idx]
+                    prim_idx = primitive_indices[edge_idx]+1
                     prim = self.op_names[prim_idx]
                     node_gene.append((prim, edge_idx.item()))
                 start = end
