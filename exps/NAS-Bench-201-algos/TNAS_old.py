@@ -376,6 +376,7 @@ def main(config):
     config.LR = config.train_lr
     config.LR_min = config.train_lr_min
     n_edges = len(supernet.edge2index)
+    depth = config.d_a  # architecture tree expansion depth
 
     if config.d_o == 1:
         groups = [[0], [[[1], [6, 7]], [[2, 3], [4, 5]]]]
@@ -391,41 +392,48 @@ def main(config):
     stages = int(np.ceil(np.log2(len(search_space))))
     # check whether edge is single path or not?
     model_flag, normal_flag, reduce_flag = check_single_path_model(supernet)
+    stage = -1
 
-    # TODO: here, has to percell at first. 
-    alphas = ['reduce', 'normal']
-    for cell in alphas:
-        edge_flag = normal_flag if cell == 'normal' else reduce_flag
-        stage = -1 
-        while not np.all(edge_flag):
-            stage += 1
-            step = -1
-            if stage == 0:
-                depths = range(2, 2 + config.model.steps)
-                check_valid = True
-            else:
-                depths = [config.d_a] * int(np.ceil(n_edges / config.d_a))
-                check_valid = False
+    alphas = ['normal', 'reduce']
+    while not model_flag:
+        stage += 1
+        step = -1
+        logger.log(f'edge to decide in normal cell is {normal_flag}'
+                   f'edge to decide in reduce cell is {reduce_flag}'
+                   )
+        stage_normal_flag = normal_flag  # to check whether one edge finishes the current stage.
+        stage_reduce_flag = reduce_flag  # to check whether one edge finishes the current stage.
 
-            stage_edge_flag = copy.deepcopy(edge_flag)
-            logger.log(f'edge to decide in normal cell is {normal_flag}'
-                    f'edge to decide in reduce cell is {reduce_flag}'
-                    )
-            logger.log(f'alphas: \nalpha_normal:\n{supernet.arch_normal_parameters}; '
-                    f'\nalpha_reduce:\n{supernet.arch_reduce_parameters}')
+        if stage == 0:
+            depths = range(2, 2 + config.model.steps)
+            check_valid = True
+        else:
+            depths = [config.d_a] * int(np.ceil(n_edges / config.d_a))
+            check_valid = False
+        logger.log(f'alphas: \nalpha_normal:\n{supernet.arch_normal_parameters}; '
+                   f'\nalpha_reduce:\n{supernet.arch_reduce_parameters}')
 
-            while not np.all(stage_edge_flag):
-                step += 1
-            
+        while not np.all(stage_normal_flag & stage_reduce_flag):
+            step += 1
+            normal_edge_to_decide = [i for i, x in enumerate(stage_normal_flag) if not x]
+            reduce_edge_to_decide = [i for i, x in enumerate(stage_reduce_flag) if not x]
+
+            for cell in alphas:
                 if cell == 'normal':
+                    edge_indicies = normal_edge_to_decide[:depths[step]]
                     arch_parameters = supernet.arch_normal_parameters
+                    stage_edge_flag = stage_normal_flag
                     group_lists = normal_group_lists
+                    if np.all(stage_normal_flag):
+                        continue
                 else:
+                    edge_indicies = reduce_edge_to_decide[:depths[step]]
                     arch_parameters = supernet.arch_reduce_parameters
-                    group_lists = reduce_group_lists   
+                    stage_edge_flag = stage_reduce_flag
+                    group_lists = reduce_group_lists
+                    if np.all(stage_reduce_flag):
+                        continue
 
-                edge_to_decide = [i for i, x in enumerate(stage_edge_flag) if not x] 
-                edge_indicies = edge_to_decide[:depths[step]]
                 logger.log(
                     f"\n======= {cell} Cell, Stage:{stage}, Step:{step}, "
                     f"Edge: {edge_indicies} ========")
@@ -433,7 +441,7 @@ def main(config):
 
                 group_list = [group_lists[edge_idx] for edge_idx in edge_indicies]
                 group_models, group_indicies = single_path_sample_models(supernet, edge_indicies, group_list, cell=cell,
-                                                                            check_valid=check_valid)
+                                                                         check_valid=check_valid)
 
                 if len(group_models) > 1:
                     group_metrics = []
@@ -441,8 +449,8 @@ def main(config):
                     for model_idx, (model_c, group_idx_list) in enumerate(zip(group_models, group_indicies)):
                         set_seed(config.rand_seed)
                         logger.log(f"===> {cell} Cell, Stage:{stage}, Step:{step}, "
-                                    f"Train and Evaluate {model_idx}/{len(group_indicies)}\n"
-                                    f"{group_idx_list} for {edge_indicies}")
+                                   f"Train and Evaluate {model_idx}/{len(group_indicies)}\n"
+                                   f"{group_idx_list} for {edge_indicies}")
                         torch.cuda.empty_cache()
                         model_c = model_c.to(device)
                         if cell == 'normal':
@@ -470,7 +478,7 @@ def main(config):
                     for i, key in enumerate(group_info):
                         results += "\ngenotype {}, idx {}: {} ;".format(key, i, group_info[key])
                     logger.log(f"Stage: {stage}/{stages} Step: {step} Cell: {cell}, "
-                                f"compare the best {config.metric}: {results}")
+                               f"compare the best {config.metric}: {results}")
 
                     if "loss" in config.metric:
                         best_indices = np.argsort(group_metrics)[:config.topk]
@@ -513,7 +521,7 @@ def main(config):
                     f'Finish {cell} Cell, Stage {stage}, Step {step}, current group list: \n {group_lists} \n'
                     f'current edge_flag: {edge_flag}')
                 torch.cuda.empty_cache()
-        
+
         # if config.re_init and stage == 0:
         #     supernet.apply(init_weights)
     # the final post procedure : count the time
