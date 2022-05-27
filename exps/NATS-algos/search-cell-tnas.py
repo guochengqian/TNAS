@@ -15,6 +15,7 @@ import numpy as np
 import torch, torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from xautodl.config_utils import load_config, dict2config, configure2str
 from xautodl.datasets import get_datasets, get_nas_search_loaders
 from xautodl.procedures import (
@@ -28,7 +29,6 @@ from xautodl.models import get_cell_based_tiny_net, get_search_spaces
 from xautodl.models.cell_operations import  NAS_BENCH_201
 from nats_bench import create
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from utils import config, set_seed, setup_logger, Wandb, generate_exp_directory, resume_exp_directory
 # best architectures
 # [[3, 2, 3, 1, 2, 2], [3, 2, 3, 1, 3, 2], [3, 3, 3, 1, 3, 3], [3, 3, 3, 1, 3, 2], [3, 3, 3, 1, 2, 3]]

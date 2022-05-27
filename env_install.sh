@@ -11,10 +11,10 @@ module load cuda/10.1.105
 
 conda create --name tnas 
 conda activate tnas
-conda install -y pytorch=1.7.0 torchvision cudatoolkit=10.1 python=3.6.8 Pillow=6.1 -c pytorch 
+conda install -y pytorch=1.7.0 torchvision cudatoolkit=10.1 python=3.6.8 Pillow=6.1 -c pytorch -y 
 
 # install useful modules
-pip install tqdm graphviz tensorboard wandb easydict multimethod nats-bench gdown
+pip install tqdm graphviz tensorboard wandb easydict multimethod nats-bench gdown termcolor
 python setup.py install  # install xautodl 
 
 # download the NATS-Bench file
