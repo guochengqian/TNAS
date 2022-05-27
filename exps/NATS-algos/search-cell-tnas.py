@@ -518,12 +518,11 @@ if __name__ == "__main__":
     tags = [config.search_space,
             config.data.dataset,
             config.algo,
-            f'C{config.model.C}', f'N{config.model.N}',
+            f'd_a{config.d_a}', f'd_o{config.d_o}',
+            f'order_{config.order}',
+            f'{config.metric}', 
             f'WE{config.warmup_epochs}', f'WBS{config.warmup_batch_size}',
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
-            f'LR{config.LR}',
-            f'{config.metric}', f'd_a{config.d_a}', f'd_o{config.d_o}',
-            f'order_{config.order}'
             ]
     if config.re_init:
         tags.append('reinit')
