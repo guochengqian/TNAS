@@ -16,7 +16,5 @@ log_dir: ./output/search/
 print_freq: 100
 
 wandb:
-  entity: null
-  use_wandb: False
+  use_wandb: True 
   project: NATS-Bench
-

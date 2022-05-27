@@ -5,6 +5,8 @@ File Description: PyTorch Implementation of TNAS on NAS-BENCH-201 dataset
 ######################################################################################
 # python exps/NAS-Bench-201-algos/TNAS.py --cfg cfgs/search_darts/tnas.yaml
 ######################################################################################
+
+
 import os, sys, time, random, argparse, json
 import itertools
 from collections import Iterable
@@ -22,7 +24,7 @@ from xautodl.procedures import (
     save_checkpoint
 )
 from xautodl.utils import count_parameters_in_MB, obtain_accuracy
-from xautodl.log_utils import AverageMeter
+from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
 from xautodl.models import get_cell_based_tiny_net, get_search_spaces
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -267,9 +269,18 @@ def main(config):
     search_space = get_search_spaces("cell", config.search_space)
     model_config = dict2config(
         dict(
+            super_type=config.model.super_type,
+            name=config.model.name,
+            C=config.model.C,
+            N=config.model.N,
+            steps=config.model.steps,
+            multiplier=config.model.multiplier,
+            stem_multiplier=config.model.stem_multiplier,
             num_classes=class_num,
             space=search_space,
-            **config.model
+            affine=bool(config.model.affine),
+            track_running_stats=bool(config.model.track_running_stats),
+            train_arch_parameters=config.model.train_arch_parameters,
         ),
         None,
     )
@@ -283,7 +294,7 @@ def main(config):
     config.LR = config.warmup_lr
     config.lr_min = config.warmup_lr_min
     w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-        supernet.weights, config
+        supernet.get_weights(), config
     )
     logger.log("w-optimizer : {:}".format(w_optimizer))
     logger.log("w-scheduler : {:}".format(w_scheduler))
@@ -381,6 +392,7 @@ def main(config):
     # check whether edge is single path or not?
     model_flag, normal_flag, reduce_flag = check_single_path_model(supernet)
 
+    # TODO: here, has to percell at first. 
     alphas = ['reduce', 'normal']
     for cell in alphas:
         edge_flag = normal_flag if cell == 'normal' else reduce_flag
@@ -439,7 +451,7 @@ def main(config):
                             logger.log(f"alpha is \n{model_c.arch_reduce_parameters}")
 
                         w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-                            model_c.weights, config
+                            model_c.get_weights(), config
                         )
                         best_metric_copy = train_val_epochs(epoch, epoch + config.decision_epochs, global_epoch,
                                                             train_loader, valid_loader,
@@ -542,21 +554,23 @@ if __name__ == "__main__":
     tags = [config.search_space,
             config.data.dataset,
             config.algo,
-            # f'N{config.model.N}', f'C{config.model.C}',
-            f'd_a{config.d_a}', f'd_o{config.d_o}',
-            f'order_{config.order}',
+            f'N{config.model.N}', f'C{config.model.C}',
             f'WE{config.warmup_epochs}', f'WBS{config.warmup_batch_size}',
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
             f'LR{config.LR}',
-            f'{config.metric}', 
-            f'Seed{config.rand_seed}'
+            f'{config.metric}', f'd_a{config.d_a}', f'd_o{config.d_o}',
+            f'order_{config.order}'
             ]
     if config.re_init:
         tags.append('reinit')
     if config.group:
         tags.append('group')
+    tags.append(f'Seed{config.rand_seed}')
     generate_exp_directory(config, tags)
     config.wandb.tags = tags
+    # else:  # resume from the existing ckpt and reuse the folder.
+    #    resume_exp_directory(config, config.load_path)
+    #    config.wandb.tags = ['resume']
     logger = prepare_logger(config)
     # wandb and tensorboard
     cfg_path = os.path.join(config.log_dir, "config.json")
@@ -574,4 +588,5 @@ if __name__ == "__main__":
     summary_writer = SummaryWriter(log_dir=config.log_dir)
 
     logger.log(config)
+
     main(config)

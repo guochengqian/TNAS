@@ -1,0 +1,106 @@
+diff --git a/cfgs/default.yaml b/cfgs/default.yaml
+index d6c043a..418ad4a 100644
+--- a/cfgs/default.yaml
++++ b/cfgs/default.yaml
+@@ -16,7 +16,5 @@ log_dir: ./output/search/
+ print_freq: 100
+ 
+ wandb:
+-  entity: null
+-  use_wandb: False
+-  project: NATS-Bench
+-
++  use_wandb: True 
++  project: NATS-Bench
+\ No newline at end of file
+diff --git a/cfgs/search_cell/default.yaml b/cfgs/search_cell/default.yaml
+index d5e61fc..d937992 100644
+--- a/cfgs/search_cell/default.yaml
++++ b/cfgs/search_cell/default.yaml
+@@ -15,7 +15,6 @@ drop_path_rate: null
+ 
+ 
+ criterion: Softmax
+-
+ LR: 0.025
+ 
+ # optimizer config.
+diff --git a/env_install.sh b/env_install.sh
+index c8a9f8e..d9bd3ec 100644
+--- a/env_install.sh
++++ b/env_install.sh
+@@ -1,36 +1,27 @@
+ #!/usr/bin/env bash
+-# make sure command is : source env_install.sh
+-
+-# install anaconda3.
+-# cd ~/
+-# wget https://repo.anaconda.com/archive/Anaconda3-2019.07-Linux-x86_64.sh
+-# bash Anaconda3-2019.07-Linux-x86_64.sh
+-
+-# module load, uncommet if using local machine
+-#module purge
+-#module load gcc
+-#module load cuda/10.1.105
+-
+-# make sure your annaconda3 is added to bashrc
+-#source activate
++# install miniconda3 if not installed yet. 
++#wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh 
++#bash Miniconda3-latest-Linux-x86_64.sh  
+ #source ~/.bashrc
+ 
++# module load, only necessary for slurm
++module purge
++module load gcc
++module load cuda/10.1.105
++
+ conda create --name tnas 
+ conda activate tnas
+ conda install -y pytorch=1.7.0 torchvision cudatoolkit=10.1 python=3.6.8 Pillow=6.1 -c pytorch 
+ 
+ # install useful modules
+ pip install tqdm graphviz tensorboard wandb easydict multimethod nats-bench gdown
+-
+ python setup.py install  # install xautodl 
+ 
+-
+ # download the NATS-Bench file
+ export TORCH_HOME=~/.torch
+ mkdir ~/.torch
+ cd $TORCH_HOME
+ gdown https://drive.google.com/uc?id=17_saCsj_krKjlCBLOJEpNtzPXArMCqxU
+ gdown https://drive.google.com/uc?id=1scOMTUwcQhAMa_IMedp9lTzwmgqHLGgA
+-
+ tar -xf NATS-tss-v1_0-3ffb9-simple.tar
+-tar -xf NATS-sss-v1_0-50262-simple.tar
++tar -xf NATS-sss-v1_0-50262-simple.tar
+\ No newline at end of file
+diff --git a/exps/NAS-Bench-201-algos/TNAS.py b/exps/NAS-Bench-201-algos/TNAS.py
+index 6b7ffdf..6dc7a4c 100644
+--- a/exps/NAS-Bench-201-algos/TNAS.py
++++ b/exps/NAS-Bench-201-algos/TNAS.py
+@@ -3,7 +3,7 @@ Copyright 2021@Guocheng Qian
+ File Description: PyTorch Implementation of TNAS on NAS-BENCH-201 dataset
+ '''
+ ######################################################################################
+-# python exps/NAS-Bench-201-algos/TNAS.py --cfg cfgs/search_darts/tnas.yaml wandb.entity=xxx wandb.use_wandb=True
++# python exps/NAS-Bench-201-algos/TNAS.py --cfg cfgs/search_darts/tnas.yaml
+ ######################################################################################
+ 
+ 
+diff --git a/xautodl/datasets/get_dataset_with_transform.py b/xautodl/datasets/get_dataset_with_transform.py
+index 27bdc7d..8c1a65d 100644
+--- a/xautodl/datasets/get_dataset_with_transform.py
++++ b/xautodl/datasets/get_dataset_with_transform.py
+@@ -255,8 +255,8 @@ def get_nas_search_loaders(
+         # logger.log('Load split file from {:}'.format(split_Fpath))      # they are two disjoint groups in the original CIFAR-10 training set
+         # To split data
+         if debug:
+-            train_split = train_split[:64]
+-            valid_split = valid_split[:64]
++            train_split = train_split[:32]
++            valid_split = valid_split[:32]
+         xvalid_data = deepcopy(train_data)
+         if hasattr(xvalid_data, "transforms"):  # to avoid a print issue
+             xvalid_data.transforms = valid_data.transform

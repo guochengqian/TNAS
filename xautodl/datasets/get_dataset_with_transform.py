@@ -255,8 +255,8 @@ def get_nas_search_loaders(
         # logger.log('Load split file from {:}'.format(split_Fpath))      # they are two disjoint groups in the original CIFAR-10 training set
         # To split data
         if debug:
-            train_split = train_split[:64]
-            valid_split = valid_split[:64]
+            train_split = train_split[:32]
+            valid_split = valid_split[:32]
         xvalid_data = deepcopy(train_data)
         if hasattr(xvalid_data, "transforms"):  # to avoid a print issue
             xvalid_data.transforms = valid_data.transform

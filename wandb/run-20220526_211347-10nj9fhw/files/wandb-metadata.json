@@ -1,0 +1,27 @@
+{
+    "os": "Linux-5.4.0-110-generic-x86_64-with-debian-buster-sid",
+    "python": "3.6.8",
+    "heartbeatAt": "2022-05-26T18:13:49.046366",
+    "startedAt": "2022-05-26T18:13:47.069168",
+    "docker": null,
+    "gpu": "GeForce RTX 2080 Ti",
+    "gpu_count": 2,
+    "cpu_count": 48,
+    "cuda": null,
+    "args": [
+        "--cfg",
+        "cfgs/search_darts/tnas.yaml"
+    ],
+    "state": "running",
+    "program": "exps/NAS-Bench-201-algos/TNAS.py",
+    "codePath": "exps/NAS-Bench-201-algos/TNAS.py",
+    "git": {
+        "remote": "git@github.com:guochengqian/TNAS.git",
+        "commit": "33ff2eac711a150d499a4333d7bbbec6a5914cac"
+    },
+    "email": "guocheng.qian@outlook.com",
+    "root": "/home/qiang/codefiles/doing/nas/TNAS",
+    "host": "kw60302",
+    "username": "qiang",
+    "executable": "/home/qiang/anaconda3/envs/tnas/bin/python"
+}

@@ -267,9 +267,18 @@ def main(config):
     search_space = get_search_spaces("cell", config.search_space)
     model_config = dict2config(
         dict(
+            super_type=config.model.super_type,
+            name=config.model.name,
+            C=config.model.C,
+            N=config.model.N,
+            steps=config.model.steps,
+            multiplier=config.model.multiplier,
+            stem_multiplier=config.model.stem_multiplier,
             num_classes=class_num,
             space=search_space,
-            **config.model
+            affine=bool(config.model.affine),
+            track_running_stats=bool(config.model.track_running_stats),
+            train_arch_parameters=config.model.train_arch_parameters,
         ),
         None,
     )
@@ -283,7 +292,7 @@ def main(config):
     config.LR = config.warmup_lr
     config.lr_min = config.warmup_lr_min
     w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-        supernet.weights, config
+        supernet.get_weights(), config
     )
     logger.log("w-optimizer : {:}".format(w_optimizer))
     logger.log("w-scheduler : {:}".format(w_scheduler))
@@ -439,7 +448,7 @@ def main(config):
                             logger.log(f"alpha is \n{model_c.arch_reduce_parameters}")
 
                         w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-                            model_c.weights, config
+                            model_c.get_weights(), config
                         )
                         best_metric_copy = train_val_epochs(epoch, epoch + config.decision_epochs, global_epoch,
                                                             train_loader, valid_loader,

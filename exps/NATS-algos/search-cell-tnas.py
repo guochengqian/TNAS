@@ -3,7 +3,7 @@ Copyright 2021@Guocheng Qian
 File Description: PyTorch Implementation of TNAS on NAS-BENCH-201 dataset
 '''
 ######################################################################################
-# python exps/NATS-algos/search-cell-tnas.py --cfg cfgs/search_cell/gradient/tnas.yaml wandb.entity=xxx wandb.use_wandb=True
+# python exps/NATS-algos/search-cell-tnas.py --cfg cfgs/search_cell/tnas.yaml 
 ######################################################################################
 
 
@@ -155,13 +155,13 @@ def train_val_epochs(start_epoch, total_epoch,
     return best_w_loss, best_a_top1
 
 
-def check_model_valid(arch_parameters, edge2index, max_nodes=4):
+def check_model_valid(arch_mask, edge2index, max_nodes=4):
     for i in range(1, max_nodes):
         none_flag = True
         for j in range(i):
             node_str = "{:}<-{:}".format(i, j)
             with torch.no_grad():
-                weights = arch_parameters[edge2index[node_str]]
+                weights = arch_mask[edge2index[node_str]]
                 none_flag = none_flag and torch.all(weights == torch.FloatTensor(NONE_ENCODING))
         if none_flag:
             return False
@@ -181,7 +181,7 @@ def single_path_sample_models(model,
     """
     # give the edge indices for spliting.
     model = model.to('cpu')
-    arch_parameters = model.arch_parameters
+    arch_mask = model.arch_mask
     group_models = []
 
     n_layers = len(group_list)
@@ -191,10 +191,10 @@ def single_path_sample_models(model,
     model_group_indicies = [i for i in itertools.product(*n_group_list)]
     model_group_list = []
     for model_i_indicies in model_group_indicies:
-        arch_parameters_copy = copy.deepcopy(arch_parameters)
+        arch_mask_copy = copy.deepcopy(arch_mask)
         model_i_group_list = []
         for idx, edge_i in enumerate(edge_indices):
-            arch_parameters_copy[edge_i, :] = 0
+            arch_mask_copy[edge_i, :] = 0
             group_idx = model_i_indicies[idx]
             op_indicies = group_list[idx][group_idx]
             model_i_group_list.append(op_indicies)
@@ -205,23 +205,23 @@ def single_path_sample_models(model,
                 if isinstance(op_indicies[0], list):  # merge nested list.
                     op_indicies = list(itertools.chain(*op_indicies))
                 for op_idx in op_indicies:
-                    arch_parameters_copy[edge_i, op_idx] = 1
+                    arch_mask_copy[edge_i, op_idx] = 1
             else:
-                arch_parameters_copy[edge_i, op_indicies] = 1
-        valid_model = check_model_valid(arch_parameters_copy, model.edge2index, model._max_nodes)
+                arch_mask_copy[edge_i, op_indicies] = 1
+        valid_model = check_model_valid(arch_mask_copy, model.edge2index, model._max_nodes)
         if valid_model:
             model_copy = copy.deepcopy(model)
-            model_copy.arch_parameters = arch_parameters_copy
+            model_copy.arch_mask = arch_mask_copy
             model_group_list.append(model_i_group_list)
             group_models.append(model_copy)
     return group_models, model_group_list
 
 
 def check_single_path_model(model):
-    n_edges = len(model.arch_parameters)
+    n_edges = len(model.arch_mask)
     edge_flag = [False] * n_edges
     for i in range(n_edges):
-        edge_flag[i] = model.arch_parameters[i].sum() == 1
+        edge_flag[i] = model.arch_mask[i].sum() == 1
     model_flag = all(edge_flag)
     return model_flag, edge_flag
 
@@ -243,15 +243,9 @@ def main(config):
     search_space = get_search_spaces(config.search_space, "nats-bench")
     model_config = dict2config(
         dict(
-            name="generic",
-            C=config.model.channels,
-            N=config.model.num_cells,
-            max_nodes=config.model.max_nodes,
             num_classes=class_num,
             space=search_space,
-            affine=bool(config.model.affine),
-            track_running_stats=bool(config.model.track_running_stats),
-            train_arch_parameters=config.model.train_arch_parameters, 
+            **config.model
         ),
         None,
     )
@@ -266,7 +260,7 @@ def main(config):
     config.LR = config.warmup_lr
     config.lr_min = config.warmup_lr_min
     w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-        supernet.weights, config
+        supernet.weights + supernet.alphas, config
     )
     logger.log("w-optimizer : {:}".format(w_optimizer))
     logger.log("w-scheduler : {:}".format(w_scheduler))
@@ -352,6 +346,8 @@ def main(config):
     depth = config.d_a  # architecture tree expansion depth
 
     # all layers choose Not None. (Following TENAS)
+    
+    # how to grouping? 
     if config.d_o ==1:
         groups = [[2, 3], [1, 4]]
     elif config.d_o>1:
@@ -376,7 +372,7 @@ def main(config):
             logger.log(
                 f"\n======= Stage: [{stage}]/[{stages}] Step: [{step}]/[{steps}] "
                 f"Edge: {edge_indicies} ========")
-            logger.log(f"current model alpha and reduce is: \n{supernet.arch_parameters}")
+            logger.log(f"current model alpha and reduce is: \n{supernet.arch_mask}")
 
             group_list = [group_lists[edge_idx] for edge_idx in edge_indicies]
             group_models, group_indicies = single_path_sample_models(supernet, edge_indicies, group_list)
@@ -384,15 +380,14 @@ def main(config):
             group_metrics = []
             group_info = {}
             for model_idx, (model_c, group_idx_list) in enumerate(zip(group_models, group_indicies)):
-                # TODO: set seed here?
                 logger.log(f"===> Stage: {stage}/{stages} Step: {step}/{steps} "
                            f"Train and Evaluate {model_idx}/{len(group_indicies)}\n"
                            f"{group_idx_list} for {edge_indicies}")
                 model_c = model_c.to(device)
-                logger.log(f"alpha is \n{model_c.arch_parameters}")
+                logger.log(f"alpha is \n{model_c.arch_mask}")
 
                 w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-                    model_c.weights, config
+                    model_c.weights + model_c.alphas, config
                 )
                 best_val_copy = train_val_epochs(epoch, epoch + config.decision_epochs,
                                                  train_loader, valid_loader,
@@ -428,10 +423,10 @@ def main(config):
                                    f"Retrain and Evaluate {idx}\n"
                                    f"{group_idx_list} for {edge_indicies}")
                         model_c = model_c.to(device)
-                        logger.log(f"alpha is \n{model_c.arch_parameters}")
+                        logger.log(f"alpha is \n{model_c.arch_mask}")
 
                         w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-                            model_c.weights, config
+                            model_c.weights + model_c.alphas, config
                         )
                         best_val_copy = train_val_epochs(epoch, epoch + config.decision_epochs,
                                                          train_loader, valid_loader,
@@ -457,7 +452,7 @@ def main(config):
 
             best_group_idx_list = group_indicies[best_idx]
             # do not use the weights from joint model.
-            # supernet.arch_parameters = group_models[best_idx]
+            # supernet.arch_mask = group_models[best_idx]
             supernet = copy.deepcopy(group_models[best_idx])
 
             # update the edge list
@@ -522,7 +517,7 @@ if __name__ == "__main__":
     tags = [config.search_space,
             config.data.dataset,
             config.algo,
-            f'N{config.model.max_nodes}', f'C{config.model.channels}', f'L{config.model.num_cells}',
+            f'C{config.model.C}', f'N{config.model.N}',
             f'WE{config.warmup_epochs}', f'WBS{config.warmup_batch_size}',
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
             f'LR{config.LR}',

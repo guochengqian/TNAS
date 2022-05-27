@@ -1,6 +1,7 @@
 #####################################################
 # Copyright (c) Xuanyi Dong [GitHub D-X-Y], 2020.07 #
 #####################################################
+from tkinter.messagebox import NO
 import torch, random
 import torch.nn as nn
 from copy import deepcopy
@@ -97,7 +98,7 @@ class Controller(nn.Module):
 class GenericNAS201Model(nn.Module):
     def __init__(
         self, C, N, max_nodes, num_classes, search_space, affine, track_running_stats,
-            train_arch_parameters=True,  
+            train_arch_parameters=True
     ):
         super(GenericNAS201Model, self).__init__()
         self._C = C
@@ -158,6 +159,8 @@ class GenericNAS201Model(nn.Module):
         else:
             self.arch_parameters = torch.ones(num_edge, len(search_space), requires_grad=False)
             self.normalizer = 'AVG'
+        
+        self.arch_mask = torch.ones(num_edge, len(search_space), requires_grad=False)
         self._mode = None
         self.dynamic_cell = None
         self._tau = None
@@ -223,10 +226,13 @@ class GenericNAS201Model(nn.Module):
 
     @property
     def alphas(self):
-        if self._algo == "enas":
-            return list(self.controller.parameters())
+        if self.train_arch_parameters:
+            if self._algo == "enas":
+                return list(self.controller.parameters())
+            else:
+                return [self.arch_parameters]
         else:
-            return [self.arch_parameters]
+            return []
 
     @property
     def message(self):
@@ -311,10 +317,11 @@ class GenericNAS201Model(nn.Module):
             return return_pairs
 
     def normalize_archp(self):
+        arch_parameters = self.arch_parameters * self.arch_mask
         if self.mode == "gdas":
             while True:
-                gumbels = -torch.empty_like(self.arch_parameters).exponential_().log()
-                logits = (self.arch_parameters.log_softmax(dim=1) + gumbels) / self.tau
+                gumbels = -torch.empty_like(arch_parameters).exponential_().log()
+                logits = (arch_parameters.log_softmax(dim=1) + gumbels) / self.tau
                 probs = nn.functional.softmax(logits, dim=1)
                 index = probs.max(-1, keepdim=True)[1]
                 one_h = torch.zeros_like(logits).scatter_(-1, index, 1.0)
@@ -332,11 +339,11 @@ class GenericNAS201Model(nn.Module):
             return hardwts, hardwts_cpu, index, "GUMBEL"
         else:
             if self.normalizer.lower() == 'softmax':
-                alphas = nn.functional.softmax(self.arch_parameters, dim=-1)
+                alphas = nn.functional.softmax(arch_parameters, dim=-1)
             else:
-                none_zero = torch.sum(self.arch_parameters[:, 1:], dim=1, keepdim=True)  # weight non zero operations
+                none_zero = torch.sum(arch_parameters[:, 1:], dim=1, keepdim=True)  # weight non zero operations
                 none_zero[none_zero == 0] = 1.
-                alphas = self.arch_parameters / none_zero
+                alphas = arch_parameters / none_zero
             index = alphas.max(-1, keepdim=True)[1]
             with torch.no_grad():
                 alphas_cpu = alphas.detach().cpu()

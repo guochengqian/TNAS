@@ -84,8 +84,9 @@ class NASNetworkDARTS(nn.Module):
         self.arch_reduce_parameters = nn.Parameter(
             1e-3 * torch.randn(num_edge, len(search_space))
         )
-
-    def get_weights(self) -> List[torch.nn.Parameter]:
+    
+    @property
+    def weights(self) -> List[torch.nn.Parameter]:
         xlist = list(self.stem.parameters()) + list(self.cells.parameters())
         xlist += list(self.lastact.parameters()) + list(
             self.global_pooling.parameters()
