@@ -524,6 +524,8 @@ if __name__ == "__main__":
             f'WE{config.warmup_epochs}', f'WBS{config.warmup_batch_size}',
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
             ]
+    if config.get('note', False):
+        tags.append(config.note)
     if config.re_init:
         tags.append('reinit')
     if config.group:
