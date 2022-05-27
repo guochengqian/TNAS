@@ -1,1 +1,0 @@
-{"global_step": 23, "_timestamp": 1653592468.248679, "train/w_loss": 0.9019281268119812, "train/w_lr": 0.024994079023599625, "train/subnet_idx": 2.0, "_runtime": 3641, "_step": 12, "train/a_top1": 71.63200378417969}
