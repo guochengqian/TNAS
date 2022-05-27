@@ -181,7 +181,7 @@ def single_path_sample_models(model,
     """
     # give the edge indices for spliting.
     model = model.to('cpu')
-    arch_mask = model.arch_mask
+    arch_mask = model.arch_mask.cpu()
     group_models = []
 
     n_layers = len(group_list)
