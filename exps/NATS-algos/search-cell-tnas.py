@@ -525,7 +525,7 @@ if __name__ == "__main__":
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
             ]
     if config.get('note', False):
-        tags.append(config.note)
+        tags.append(str(config.note))
     if config.re_init:
         tags.append('reinit')
     if config.group:
