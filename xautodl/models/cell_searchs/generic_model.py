@@ -339,7 +339,9 @@ class GenericNAS201Model(nn.Module):
             return hardwts, hardwts_cpu, index, "GUMBEL"
         else:
             if self.normalizer.lower() == 'softmax':
-                alphas = nn.functional.softmax(arch_parameters, dim=-1)
+                # alphas = nn.functional.softmax(arch_parameters, dim=-1)
+                exp_alphs = torch.exp(arch_parameters) * self.arch_mask
+                alphas = exp_alphs / exp_alphs.sum(dim=-1, keepdim=True)
             else:
                 none_zero = torch.sum(arch_parameters[:, 1:], dim=1, keepdim=True)  # weight non zero operations
                 none_zero[none_zero == 0] = 1.

@@ -384,6 +384,7 @@ def main(config):
                            f"Train and Evaluate {model_idx}/{len(group_indicies)}\n"
                            f"{group_idx_list} for {edge_indicies}")
                 model_c = model_c.to(device)
+                model_c.arch_mask = model_c.arch_mask.to(device)
                 logger.log(f"alpha is \n{model_c.arch_mask}")
 
                 w_optimizer, w_scheduler, criterion = get_optim_scheduler(
