@@ -285,7 +285,8 @@ def main(config):
         api = None
     logger.log("{:} create API = {:} done".format(time_string(), api))
     supernet, criterion = supernet.cuda(), criterion.cuda()  # use a single GPU
-
+    supernet.arch_mask = supernet.arch_mask.cuda()
+    
     if config.load_path is not None:
         logger.log(
             "=> loading checkpoint of the last-info '{:}' start".format(
