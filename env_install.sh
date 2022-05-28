@@ -9,6 +9,7 @@ module purge
 module load gcc
 module load cuda/10.1.105
 
+export TORCH_CUDA_ARCH_LIST="6.1;6.2;7.0;7.5;8.0"   # a100: 8.0; v100: 7.0; 2080ti: 7.5; titan xp: 6.1
 conda create --name tnas 
 conda activate tnas
 conda install -y pytorch=1.7.0 torchvision cudatoolkit=10.1 python=3.6.8 Pillow=6.1 -c pytorch -y 
