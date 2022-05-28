@@ -3,33 +3,40 @@ Copyright 2021@Guocheng Qian
 File Description: PyTorch Implementation of TNAS on NAS-BENCH-201 dataset
 '''
 ######################################################################################
-# python exps/NATS-algos/search-cell-tnas.py --cfg cfgs/search_cell/tnas.yaml 
+# python exps/NATS-algos/search-cell-tnas.py --cfg cfgs/search_cell/tnas.yaml
 ######################################################################################
 
 
-import os, sys, time, random, argparse, json
-import itertools
-import copy
-
-import numpy as np
-import torch, torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from xautodl.config_utils import load_config, dict2config, configure2str
-from xautodl.datasets import get_datasets, get_nas_search_loaders
+from utils import config, set_seed, setup_logger, Wandb, generate_exp_directory, resume_exp_directory
+from nats_bench import create
+from xautodl.models.cell_operations import NAS_BENCH_201
+from xautodl.models import get_cell_based_tiny_net, get_search_spaces
+from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
+from xautodl.utils import count_parameters_in_MB, obtain_accuracy
 from xautodl.procedures import (
     get_optim_scheduler,
     prepare_logger,
     save_checkpoint
 )
-from xautodl.utils import count_parameters_in_MB, obtain_accuracy
-from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
-from xautodl.models import get_cell_based_tiny_net, get_search_spaces
-from xautodl.models.cell_operations import  NAS_BENCH_201
-from nats_bench import create
+from xautodl.datasets import get_datasets, get_nas_search_loaders
+from xautodl.config_utils import load_config, dict2config, configure2str
+import os
+import sys
+import time
+import random
+import argparse
+import json
+import itertools
+import copy
 
-from utils import config, set_seed, setup_logger, Wandb, generate_exp_directory, resume_exp_directory
+import numpy as np
+import torch
+import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
+
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '../..')))
+
 # best architectures
 # [[3, 2, 3, 1, 2, 2], [3, 2, 3, 1, 3, 2], [3, 3, 3, 1, 3, 3], [3, 3, 3, 1, 3, 2], [3, 3, 3, 1, 2, 3]]
 
@@ -75,8 +82,8 @@ def train_func(
 
         if step % print_freq == 0 or step + 1 == len(train_loader):
             Sstr = (
-                    "*SEARCH* "
-                    + " [{:}][{:03d}/{:03d}]".format(epoch_str, step, len(train_loader))
+                "*SEARCH* "
+                + " [{:}][{:03d}/{:03d}]".format(epoch_str, step, len(train_loader))
             )
             Tstr = "Time {batch_time.val:.2f} ({batch_time.avg:.2f}) Data {data_time.val:.2f} ({data_time.avg:.2f})".format(
                 batch_time=batch_time, data_time=data_time
@@ -132,7 +139,8 @@ def train_val_epochs(start_epoch, total_epoch,
                                    w_scheduler, w_optimizer,
                                    epoch_str, config.print_freq, logger,
                                    )
-        strs = "[{:}] search [base] : loss={:.2f}".format(epoch_str, search_w_loss)
+        strs = "[{:}] search [base] : loss={:.2f}".format(
+            epoch_str, search_w_loss)
         if search_w_loss < best_w_loss:
             best_w_loss = search_w_loss
 
@@ -142,7 +150,8 @@ def train_val_epochs(start_epoch, total_epoch,
             if search_a_top1 > best_a_top1:
                 best_a_top1 = search_a_top1
             strs += "search [arch] : accuracy@1={:.2f}%".format(search_a_top1)
-            summary_writer.add_scalar(f'train/a_top1', search_a_top1, global_epoch)
+            summary_writer.add_scalar(
+                f'train/a_top1', search_a_top1, global_epoch)
 
         logger.log(strs)
 
@@ -150,7 +159,8 @@ def train_val_epochs(start_epoch, total_epoch,
             with torch.no_grad():
                 logger.log("{:}".format(model.show_alphas()))
         summary_writer.add_scalar(f'train/w_loss', search_w_loss, global_epoch)
-        summary_writer.add_scalar(f'train/w_lr', w_scheduler.get_lr()[-1], global_epoch)
+        summary_writer.add_scalar(
+            f'train/w_lr', w_scheduler.get_lr()[-1], global_epoch)
         summary_writer.add_scalar('train/subnet_idx', model_idx, global_epoch)
     return best_w_loss, best_a_top1
 
@@ -162,7 +172,8 @@ def check_model_valid(arch_mask, edge2index, max_nodes=4):
             node_str = "{:}<-{:}".format(i, j)
             with torch.no_grad():
                 weights = arch_mask[edge2index[node_str]]
-                none_flag = none_flag and torch.all(weights == torch.FloatTensor(NONE_ENCODING))
+                none_flag = none_flag and torch.all(
+                    weights == torch.FloatTensor(NONE_ENCODING))
         if none_flag:
             return False
     return True
@@ -185,9 +196,11 @@ def single_path_sample_models(model,
     group_models = []
 
     n_layers = len(group_list)
-    assert len(edge_indices) == n_layers  # group_list should have the group for each layer
+    # group_list should have the group for each layer
+    assert len(edge_indices) == n_layers
 
-    n_group_list = [list(range(len(g))) for g in group_list]  # possible sub group idx for each layer.
+    # possible sub group idx for each layer.
+    n_group_list = [list(range(len(g))) for g in group_list]
     model_group_indicies = [i for i in itertools.product(*n_group_list)]
     model_group_list = []
     for model_i_indicies in model_group_indicies:
@@ -208,7 +221,8 @@ def single_path_sample_models(model,
                     arch_mask_copy[edge_i, op_idx] = 1
             else:
                 arch_mask_copy[edge_i, op_indicies] = 1
-        valid_model = check_model_valid(arch_mask_copy, model.edge2index, model._max_nodes)
+        valid_model = check_model_valid(
+            arch_mask_copy, model.edge2index, model._max_nodes)
         if valid_model:
             model_copy = copy.deepcopy(model)
             model_copy.arch_mask = arch_mask_copy
@@ -238,8 +252,8 @@ def main(config):
         config.data.dataset, config.data.data_path, -1)
     config.xshape = xshape
     config.class_num = class_num
-    
-    # create nats-bench 
+
+    # create nats-bench
     search_space = get_search_spaces(config.search_space, "nats-bench")
     model_config = dict2config(
         dict(
@@ -277,7 +291,8 @@ def main(config):
 
     if config.load_path is not None:
         logger.log(
-            "=> loading checkpoint of the last-info '{:}' start".format(config.load_path)
+            "=> loading checkpoint of the last-info '{:}' start".format(
+                config.load_path)
         )
         checkpoint = torch.load(config.load_path, map_location='cpu')
         start_epoch = checkpoint["epoch"]
@@ -336,7 +351,8 @@ def main(config):
         (config.train_batch_size, config.test_batch_size),
         config.workers,
     )
-    (test_val_idx, argbest) = (0, np.argmin) if 'loss' in config.metric else (1, np.argmax)
+    (test_val_idx, argbest) = (
+        0, np.argmin) if 'loss' in config.metric else (1, np.argmax)
 
     epoch = 0
     config.epochs = config.train_epochs
@@ -346,11 +362,11 @@ def main(config):
     depth = config.d_a  # architecture tree expansion depth
 
     # all layers choose Not None. (Following TENAS)
-    
-    # how to grouping? 
-    if config.d_o ==1:
+
+    # how to grouping?
+    if config.d_o == 1:
         groups = [[2, 3], [1, 4]]
-    elif config.d_o>1:
+    elif config.d_o > 1:
         groups = [2, 3, 1, 4]
     group_lists = [groups] * n_edges  # the groups to choose for each edge
     stages = int(np.ceil(np.log2(len(NAS_BENCH_201))))
@@ -372,10 +388,12 @@ def main(config):
             logger.log(
                 f"\n======= Stage: [{stage}]/[{stages}] Step: [{step}]/[{steps}] "
                 f"Edge: {edge_indicies} ========")
-            logger.log(f"current model alpha and reduce is: \n{supernet.arch_mask}")
+            logger.log(
+                f"current model alpha and reduce is: \n{supernet.arch_mask}")
 
             group_list = [group_lists[edge_idx] for edge_idx in edge_indicies]
-            group_models, group_indicies = single_path_sample_models(supernet, edge_indicies, group_list)
+            group_models, group_indicies = single_path_sample_models(
+                supernet, edge_indicies, group_list)
 
             group_metrics = []
             group_info = {}
@@ -403,7 +421,8 @@ def main(config):
             logger.log(f"Stage: {stage}/{stages} Step: {step}/{steps}")
             results = ""
             for i, key in enumerate(group_info):
-                results += "genotype {}, idx {}: {} ; ".format(key, i, group_info[key])
+                results += "genotype {}, idx {}: {} ; ".format(
+                    key, i, group_info[key])
             logger.log(f"compare the best {config.metric}: {results}")
 
             if "loss" in config.metric:
@@ -418,7 +437,8 @@ def main(config):
                     group_metrics = []
                     for idx in best_indices:
                         model_c = group_models[idx]
-                        model_c.apply(init_weights)
+                        if config.re_init:
+                            model_c.apply(init_weights)
                         group_idx_list = group_indicies[idx]
                         logger.log(f"===> Stage: {stage}/{stages} Step: {step}/{steps} "
                                    f"Retrain and Evaluate {idx}\n"
@@ -468,7 +488,14 @@ def main(config):
                        f'current edge_flag: {edge_flag}')
             torch.cuda.empty_cache()
 
-        if config.re_init and stage==0:
+        if config.stabilize_epochs > 0:
+            train_val_epochs(epoch, epoch+config.stabilize_epochs,
+                             train_loader, valid_loader,
+                             supernet, 0,
+                             criterion, w_scheduler, w_optimizer,
+                             enable_valid=False
+                             )
+        if config.re_init and stage == 0:
             supernet.apply(init_weights)
     # the final post procedure : count the time
     genotype = supernet.genotype
@@ -481,20 +508,28 @@ def main(config):
         logger.log("{:}".format(api.query_by_arch(genotype, "200")))
     # first, query the acc before training.
     arch_index = api.query_index_by_arch(genotype)
-    cifar10_score = api.arch2infos_dict[arch_index]['200'].get_metrics('cifar10', 'ori-test')['accuracy']
-    cifar100_score = api.arch2infos_dict[arch_index]['200'].get_metrics('cifar100', 'x-test')['accuracy']
-    imagenet16_score = api.arch2infos_dict[arch_index]['200'].get_metrics('ImageNet16-120', 'x-test')['accuracy']
+    cifar10_score = api.arch2infos_dict[arch_index]['200'].get_metrics(
+        'cifar10', 'ori-test')['accuracy']
+    cifar100_score = api.arch2infos_dict[arch_index]['200'].get_metrics(
+        'cifar100', 'x-test')['accuracy']
+    imagenet16_score = api.arch2infos_dict[arch_index]['200'].get_metrics(
+        'ImageNet16-120', 'x-test')['accuracy']
     # log the acc and the weights.
-    summary_writer.add_scalar(f'final/cifar10-test', cifar10_score, global_epoch + 1)
-    summary_writer.add_scalar(f'final/cifar100-test', cifar100_score, global_epoch + 1)
-    summary_writer.add_scalar(f'final/imagenet16-test', imagenet16_score, global_epoch + 1)
-    summary_writer.add_scalar(f'final/model_index', arch_index, global_epoch + 1)
+    summary_writer.add_scalar(f'final/cifar10-test',
+                              cifar10_score, global_epoch + 1)
+    summary_writer.add_scalar(f'final/cifar100-test',
+                              cifar100_score, global_epoch + 1)
+    summary_writer.add_scalar(f'final/imagenet16-test',
+                              imagenet16_score, global_epoch + 1)
+    summary_writer.add_scalar(f'final/model_index',
+                              arch_index, global_epoch + 1)
 
 
 def parse_option():
     parser = argparse.ArgumentParser('search cell')
     parser.add_argument('--cfg', type=str, required=True, help='config file')
-    parser.add_argument('--debug', action='store_true', default=False, help='debug mode')
+    parser.add_argument('--debug', action='store_true',
+                        default=False, help='debug mode')
     args, opts = parser.parse_known_args()
     config.load(args.cfg, recursive=True)
     config.update(opts)
@@ -520,7 +555,7 @@ if __name__ == "__main__":
             config.algo,
             f'd_a{config.d_a}', f'd_o{config.d_o}',
             f'order_{config.order}',
-            f'{config.metric}', 
+            f'{config.metric}',
             f'WE{config.warmup_epochs}', f'WBS{config.warmup_batch_size}',
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
             ]

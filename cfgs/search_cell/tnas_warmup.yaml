@@ -1,0 +1,30 @@
+algo: tnas # choose from "darts-v2", "gdas", "setn", "random", "enas", "tnas"
+
+model:
+  train_arch_parameters: True 
+group: True # using operation tree or not?
+d_o: 1  # expansion depth on operation tree 
+d_a: 6  # expansion depth on architecture tree 
+order: widthwise # architecture tree branch order. random, depthwise, or widthwise (default)
+
+metric: val_acc  # or [val_acc, train_loss]
+
+# train model before TNAS branching. (no warmup by default.) 
+warmup_epochs: 10 
+warmup_lr: 0.025
+warmup_lr_min: 0.001
+warmup_batch_size: 300
+warmup_mode: joint
+
+# TNAS training for each subnet. 
+train_lr: 0.025
+train_lr_min: 0.
+train_epochs: 200 # the total number of epochs to train if with full exploitation. 
+train_batch_size: 64 # 600 in gpu 1080ti
+decision_epochs: 2  # decision_epochs. epoch 2 is enough for distinguishing
+topk: 2 # re-examize the topk subnets to reduce variance. 
+
+# TNAS stabilize after each branching-picking 
+stabilize_epochs: 2
+re_init: False
+test_batch_size: 16384
