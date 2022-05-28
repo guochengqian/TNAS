@@ -317,6 +317,7 @@ class GenericNAS201Model(nn.Module):
             return return_pairs
 
     def normalize_archp(self):
+        self.arch_mask = self.arch_mask.to(self.arch_parameters.device)
         arch_parameters = self.arch_parameters * self.arch_mask
         if self.mode == "gdas":
             while True:

@@ -285,7 +285,6 @@ def main(config):
         api = None
     logger.log("{:} create API = {:} done".format(time_string(), api))
     supernet, criterion = supernet.cuda(), criterion.cuda()  # use a single GPU
-    supernet.arch_mask = supernet.arch_mask.cuda()
     
     if config.load_path is not None:
         logger.log(
@@ -400,7 +399,6 @@ def main(config):
                            f"Train and Evaluate {model_idx}/{len(group_indicies)}\n"
                            f"{group_idx_list} for {edge_indicies}")
                 model_c = model_c.to(device)
-                model_c.arch_mask = model_c.arch_mask.to(device)
                 logger.log(f"alpha is \n{model_c.arch_mask}")
 
                 w_optimizer, w_scheduler, criterion = get_optim_scheduler(
@@ -415,7 +413,7 @@ def main(config):
                 group_metrics.append(best_val_copy)
                 group_info[str(group_idx_list)] = best_val_copy
                 model_c = model_c.to('cpu')
-
+                logger.log(f"arch_parameters is \n{model_c.arch_parameters}")
             logger.log(f"Stage: {stage}/{stages} Step: {step}/{steps}")
             results = ""
             for i, key in enumerate(group_info):
