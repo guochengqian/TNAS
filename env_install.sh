@@ -7,12 +7,15 @@
 # module load, only necessary for slurm
 module purge
 module load gcc
-module load cuda/10.1.105
+module load cuda/11.1.1
 
 export TORCH_CUDA_ARCH_LIST="6.1;6.2;7.0;7.5;8.0"   # a100: 8.0; v100: 7.0; 2080ti: 7.5; titan xp: 6.1
-conda create --name tnas 
+
+conda deactivate
+conda env remove --name tnas
+conda create -n tnas python=3.7 numpy=1.20 numba -y 
 conda activate tnas
-conda install -y pytorch=1.7.0 torchvision cudatoolkit=10.1 python=3.6.8 Pillow=6.1 -c pytorch -y 
+conda install -y pytorch=1.10.1 torchvision cudatoolkit=11.1 python=3.6.8 Pillow=6.1 -c pytorch 
 
 # install useful modules
 pip install tqdm graphviz tensorboard wandb easydict multimethod nats-bench gdown termcolor
