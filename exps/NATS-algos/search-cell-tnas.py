@@ -6,7 +6,7 @@ File Description: PyTorch Implementation of TNAS on NAS-BENCH-201 dataset
 # python exps/NATS-algos/search-cell-tnas.py --cfg cfgs/search_cell/tnas.yaml
 ######################################################################################
 
-
+import __init__
 from utils import config, set_seed, setup_logger, Wandb, generate_exp_directory, resume_exp_directory
 from nats_bench import create
 from xautodl.models.cell_operations import NAS_BENCH_201
@@ -33,9 +33,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
-
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../..')))
 
 # best architectures
 # [[3, 2, 3, 1, 2, 2], [3, 2, 3, 1, 3, 2], [3, 3, 3, 1, 3, 3], [3, 3, 3, 1, 3, 2], [3, 3, 3, 1, 2, 3]]
