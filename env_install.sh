@@ -15,11 +15,10 @@ conda deactivate
 conda env remove --name tnas
 conda create -n tnas python=3.7 numpy=1.20 numba -y 
 conda activate tnas
-conda install -y pytorch=1.10.1 torchvision cudatoolkit=11.1 python=3.6.8 Pillow=6.1 -c pytorch 
+conda install -y pytorch=1.10.1 torchvision cudatoolkit=11.1 python=3.6.8 Pillow=6.1 -c pytorch -c nvidia 
 
 # install useful modules
 pip install tqdm graphviz tensorboard wandb easydict multimethod nats-bench gdown termcolor
-python setup.py install  # install xautodl 
 
 # download the NATS-Bench file
 export TORCH_HOME=~/.torch
