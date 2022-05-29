@@ -6,11 +6,12 @@ group: True # using operation tree or not?
 d_o: 1  # expansion depth on operation tree 
 d_a: 6  # expansion depth on architecture tree 
 order: widthwise # architecture tree branch order. random, depthwise, or widthwise (default)
+group_id: 0
 
 metric: val_acc  # or [val_acc, train_loss]
 
 # train model before TNAS branching. (no warmup by default.) 
-warmup_epochs: 10 
+warmup_epochs: 40 
 warmup_lr: 0.025
 warmup_lr_min: 0.001
 warmup_batch_size: 300
