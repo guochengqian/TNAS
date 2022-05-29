@@ -271,7 +271,7 @@ def main(config):
     config.LR = config.warmup_lr
     config.lr_min = config.warmup_lr_min
     w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-        supernet.weights + supernet.alphas, config
+        supernet.weights, config, supernet.alphas
     )
     logger.log("w-optimizer : {:}".format(w_optimizer))
     logger.log("w-scheduler : {:}".format(w_scheduler))
@@ -402,7 +402,7 @@ def main(config):
                 logger.log(f"alpha is \n{model_c.arch_mask}")
 
                 w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-                    model_c.weights + model_c.alphas, config
+                    model_c.weights, config, model_c.alphas 
                 )
                 best_val_copy = train_val_epochs(epoch, epoch + config.decision_epochs,
                                                  train_loader, valid_loader,
@@ -443,7 +443,7 @@ def main(config):
                         logger.log(f"alpha is \n{model_c.arch_mask}")
 
                         w_optimizer, w_scheduler, criterion = get_optim_scheduler(
-                            model_c.weights + model_c.alphas, config
+                            model_c.weights, config, model_c.alphas
                         )
                         best_val_copy = train_val_epochs(epoch, epoch + config.decision_epochs,
                                                          train_loader, valid_loader,
@@ -485,6 +485,7 @@ def main(config):
             torch.cuda.empty_cache()
 
         if config.stabilize_epochs > 0:
+            supernet = supernet.to(device)
             train_val_epochs(epoch, epoch+config.stabilize_epochs,
                              train_loader, valid_loader,
                              supernet, 0,

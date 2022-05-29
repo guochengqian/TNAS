@@ -93,10 +93,10 @@ class NAS201SearchCell(nn.Module):
             for j in range(i):
                 node_str = "{:}<-{:}".format(i, j)
                 weights = weightss[self.edge2index[node_str]]
-                # aggregation = sum( layer(nodes[j]) * w for layer, w in zip(self.edges[node_str], weights) ) / weights.numel()
                 aggregation = sum(
                     layer(nodes[j]) * w
                     for layer, w in zip(self.edges[node_str], weights)
+                    if w!=0
                 )
                 inter_nodes.append(aggregation)
             nodes.append(sum(inter_nodes))

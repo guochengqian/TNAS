@@ -213,7 +213,7 @@ class CrossEntropyLabelSmooth(nn.Module):
         return loss
 
 
-def get_optim_scheduler(parameters, config):
+def get_optim_scheduler(parameters, config, arch_parameters=None):
     assert (
         hasattr(config, "optim")
         and hasattr(config, "scheduler")
@@ -221,12 +221,17 @@ def get_optim_scheduler(parameters, config):
     ), "config must have optim / scheduler / criterion keys instead of {:}".format(
         config
     )
+    
+    if arch_parameters is not None:
+        parameters = [{"params": parameters, "weight_decay": config.decay}, 
+                      {"params": arch_parameters, "weight_decay": 0 } 
+                     ]
     if config.optim == "SGD":
-        optim = torch.optim.SGD(
-            parameters,
+        optim = torch.optim.SGD(            
+            parameters, 
             config.LR,
-            momentum=config.momentum,
             weight_decay=config.decay,
+            momentum=config.momentum,
             nesterov=config.nesterov,
         )
     elif config.optim == "RMSprop":
