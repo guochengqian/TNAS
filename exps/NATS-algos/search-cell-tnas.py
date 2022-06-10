@@ -7,38 +7,28 @@ File Description: PyTorch Implementation of TNAS on NAS-BENCH-201 dataset
 ######################################################################################
 
 import __init__
-from utils import config, set_seed, setup_logger, Wandb, generate_exp_directory, resume_exp_directory
-from nats_bench import create
-from xautodl.models.cell_operations import NAS_BENCH_201
-from xautodl.models import get_cell_based_tiny_net, get_search_spaces
-from xautodl.log_utils import AverageMeter, time_string, convert_secs2time
-from xautodl.utils import count_parameters_in_MB, obtain_accuracy
-from xautodl.procedures import (
-    get_optim_scheduler,
-    prepare_logger,
-    save_checkpoint
-)
-from xautodl.datasets import get_datasets, get_nas_search_loaders
-from xautodl.config_utils import load_config, dict2config, configure2str
 import os
-import sys
 import time
 import random
 import argparse
 import json
 import itertools
 import copy
-
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
-
+from utils import config, set_seed, Wandb, generate_exp_directory
+from nats_bench import create
+from xautodl.models.cell_operations import NAS_BENCH_201
+from xautodl.models import get_cell_based_tiny_net, get_search_spaces
+from xautodl.log_utils import AverageMeter, time_string
+from xautodl.utils import count_parameters_in_MB, obtain_accuracy
+from xautodl.procedures import get_optim_scheduler, prepare_logger, save_checkpoint
+from xautodl.datasets import get_datasets, get_nas_search_loaders
+from xautodl.config_utils import dict2config
 # best architectures
 # [[3, 2, 3, 1, 2, 2], [3, 2, 3, 1, 3, 2], [3, 3, 3, 1, 3, 3], [3, 3, 3, 1, 3, 2], [3, 3, 3, 1, 2, 3]]
-
-global global_epoch
-
 NONE_ENCODING = [1, 0, 0, 0, 0]
 
 
@@ -117,21 +107,19 @@ def valid_func(xloader, model):
     return arch_top1.avg, arch_top5.avg
 
 
-def train_val_epochs(start_epoch, total_epoch,
+def train_val_epochs(
+                     train_epochs,
                      train_loader, valid_loader,
-                     model, model_idx,
+                     model, 
                      criterion, w_scheduler, w_optimizer,
                      show_alpha=False,
                      enable_valid=True
                      ):
-    global global_epoch
     best_a_top1 = 0.
     best_w_loss = np.inf
-    for epoch in range(start_epoch, total_epoch):
-        global_epoch += 1
-        w_scheduler.update(epoch, 0.0)
-        epoch_str = "{:03d}-{:03d}".format(epoch + 1, total_epoch)
-
+    for epoch in range(train_epochs):
+        # w_scheduler.update(epoch, 0.0)
+        epoch_str = "{:03d}-{:03d}".format(epoch + 1, train_epochs)
         search_w_loss = train_func(train_loader, model, criterion,
                                    w_scheduler, w_optimizer,
                                    epoch_str, config.print_freq, logger,
@@ -142,23 +130,15 @@ def train_val_epochs(start_epoch, total_epoch,
             best_w_loss = search_w_loss
 
         # only validate at the last training epoch
-        if enable_valid and epoch == total_epoch - 1:
+        if enable_valid and epoch == train_epochs - 1:
             search_a_top1, _ = valid_func(valid_loader, model)
             if search_a_top1 > best_a_top1:
                 best_a_top1 = search_a_top1
             strs += "search [arch] : accuracy@1={:.2f}%".format(search_a_top1)
-            summary_writer.add_scalar(
-                f'train/a_top1', search_a_top1, global_epoch)
-
         logger.log(strs)
-
         if show_alpha:
             with torch.no_grad():
                 logger.log("{:}".format(model.show_alphas()))
-        summary_writer.add_scalar(f'train/w_loss', search_w_loss, global_epoch)
-        summary_writer.add_scalar(
-            f'train/w_lr', w_scheduler.get_lr()[-1], global_epoch)
-        summary_writer.add_scalar('train/subnet_idx', model_idx, global_epoch)
     return best_w_loss, best_a_top1
 
 
@@ -171,6 +151,7 @@ def check_model_valid(arch_mask, edge2index, max_nodes=4):
                 weights = arch_mask[edge2index[node_str]]
                 none_flag = none_flag and torch.all(
                     weights == torch.FloatTensor(NONE_ENCODING))
+        # a node at least chooses a not-none edge
         if none_flag:
             return False
     return True
@@ -192,9 +173,8 @@ def single_path_sample_models(model,
     arch_mask = model.arch_mask.cpu()
     group_models = []
 
-    n_layers = len(group_list)
     # group_list should have the group for each layer
-    assert len(edge_indices) == n_layers
+    assert len(edge_indices) == len(group_list)
 
     # possible sub group idx for each layer.
     n_group_list = [list(range(len(g))) for g in group_list]
@@ -229,12 +209,34 @@ def single_path_sample_models(model,
 
 
 def check_single_path_model(model):
+    """check wheter each edge choose a single operation.
+    """
     n_edges = len(model.arch_mask)
     edge_flag = [False] * n_edges
     for i in range(n_edges):
         edge_flag[i] = model.arch_mask[i].sum() == 1
     model_flag = all(edge_flag)
     return model_flag, edge_flag
+
+
+def get_groups_from_alphas(supernet):
+    arch_parameters = supernet.arch_parameters.cpu()
+    valid_flag = arch_parameters>0
+    sorted_idx = (torch.argsort(arch_parameters[:, 1:], descending=True) + 1).tolist()
+    valid_idx = [[idx for idx in sorted_idx[i] if valid_flag[i, idx]] for i in range(len(sorted_idx))]
+    for i, item in enumerate(valid_idx):
+        if len(item) == 0:
+           valid_idx[i] = [0] 
+    # grouping based on alpha values 
+    group_lists = []
+    for i in range(len(valid_idx)):
+        if len(valid_idx[i])>2:    
+            group_lists.append([valid_idx[i][:2], valid_idx[i][2:]])
+        else:
+            group_lists.append(valid_idx[i])
+    
+    supernet.arch_mask *= valid_flag.to(supernet.arch_mask.dtype)
+    return group_lists
 
 
 def init_weights(m):
@@ -317,9 +319,9 @@ def main(config):
     start_time = (time.time())
     supernet.apply(init_weights)
     # warm up epochs.
-    train_val_epochs(start_epoch, config.warmup_epochs,
+    train_val_epochs(config.epochs,
                      train_loader, valid_loader,
-                     supernet, 0,
+                     supernet, 
                      criterion, w_scheduler, w_optimizer,
                      enable_valid=False
                      )
@@ -338,7 +340,6 @@ def main(config):
 
     logger.log("\n\n========== Start TNAS Branching ============= ")
     supernet.set_cal_mode('joint')
-    del train_loader
     torch.cuda.empty_cache()
     _, train_loader, valid_loader = get_nas_search_loaders(
         train_data,
@@ -355,28 +356,16 @@ def main(config):
     config.epochs = config.train_epochs
     config.LR = config.train_lr
     config.LR_min = config.train_lr_min
-    n_edges = len(supernet.edge2index)
     depth = config.d_a  # architecture tree expansion depth
+    
+    group_lists = get_groups_from_alphas(supernet) 
 
-    # all layers choose Not None. (Following TENAS)
-
-    # how to grouping?
-    if config.d_o == 1:
-        group_id = config.get('group_id', 0)
-        if group_id == 0: # by default
-            groups = [[2, 3], [1, 4]]
-        elif group_id == 1: 
-            groups = [[2, 4], [1, 3]]
-        elif group_id == 2:
-            groups = [[1, 2], [3, 4]]
-    elif config.d_o > 1:
-        groups = [2, 3, 1, 4]
-    group_lists = [groups] * n_edges  # the groups to choose for each edge
     stages = int(np.ceil(np.log2(len(NAS_BENCH_201))))
-    # check whether edge is single path or not?
+    # check whether edge is single path or not? 
     model_flag, edge_flag = check_single_path_model(supernet)
     stage = -1
 
+    logger.log(f'the group list is: {group_lists}')
     while (not model_flag):
         stage += 1
         edge_to_decide = [i for i, x in enumerate(edge_flag) if not x]
@@ -411,9 +400,9 @@ def main(config):
                 w_optimizer, w_scheduler, criterion = get_optim_scheduler(
                     model_c.weights, config, model_c.alphas
                 )
-                best_val_copy = train_val_epochs(epoch, epoch + config.decision_epochs,
+                best_val_copy = train_val_epochs(config.decision_epochs,
                                                  train_loader, valid_loader,
-                                                 model_c, model_idx,
+                                                 model_c,
                                                  criterion, w_scheduler, w_optimizer,
                                                  enable_valid=config.enable_valid
                                                  )[test_val_idx]
@@ -452,9 +441,9 @@ def main(config):
                         w_optimizer, w_scheduler, criterion = get_optim_scheduler(
                             model_c.weights, config, model_c.alphas
                         )
-                        best_val_copy = train_val_epochs(epoch, epoch + config.decision_epochs,
+                        best_val_copy = train_val_epochs(config.decision_epochs,
                                                          train_loader, valid_loader,
-                                                         model_c, model_idx,
+                                                         model_c,
                                                          criterion, w_scheduler, w_optimizer,
                                                          enable_valid=config.enable_valid
                                                          )[test_val_idx]
@@ -475,10 +464,7 @@ def main(config):
                 best_idx = best_indices[0]
 
             best_group_idx_list = group_indicies[best_idx]
-            # do not use the weights from joint model.
-            # supernet.arch_mask = group_models[best_idx]
             supernet = copy.deepcopy(group_models[best_idx])
-
             # update the edge list
             for i, group_list in enumerate(best_group_idx_list):
                 edge_i = edge_indicies[i]
@@ -496,9 +482,9 @@ def main(config):
             w_optimizer, w_scheduler, criterion = get_optim_scheduler(
                 supernet.weights, config, supernet.alphas
             )
-            train_val_epochs(epoch, epoch+config.stabilize_epochs,
+            train_val_epochs(config.stabilize_epochs,
                              train_loader, valid_loader,
-                             supernet, 0,
+                             supernet, 
                              criterion, w_scheduler, w_optimizer,
                              enable_valid=False
                              )
