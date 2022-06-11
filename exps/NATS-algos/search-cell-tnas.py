@@ -235,7 +235,7 @@ def get_groups_from_alphas(supernet):
         else:
             group_lists.append(valid_idx[i])
     
-    supernet.arch_mask *= valid_flag.to(supernet.arch_mask.dtype)
+    supernet.arch_mask *= valid_flag.to(supernet.arch_mask.dtype).to(supernet.arch_mask.device)
     return group_lists
 
 

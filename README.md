@@ -11,7 +11,9 @@ source env_install.sh
 
 ## Search on NAS-Bench-201
 ```
-CUDA_VISIBLE_DEVICES=0 python exps/NATS-algos/search-cell-tnas.py --cfg cfgs/search_cell/tnas.yaml 
+CUDA_VISIBLE_DEVICES=0 python exps/NATS-algos/search-cell-tnas.py --cfg cfgs/search_cell/tnas.yaml
+
+sbatch --array=0-4 --time=5:00:00 a100_tnas_alpha.sh cfgs/search_cell/tnas_warmup.yaml d_a=4
 ```
 
 
