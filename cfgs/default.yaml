@@ -17,4 +17,4 @@ print_freq: 100
 
 wandb:
   use_wandb: True 
-  project: NATS-Bench
+  project: TNAS-NASBench201 
