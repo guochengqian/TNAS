@@ -15,6 +15,7 @@ import json
 import itertools
 import copy
 import numpy as np
+from typing import List
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
@@ -358,10 +359,13 @@ def main(config):
     config.LR_min = config.train_lr_min
     depth = config.d_a  # architecture tree expansion depth
     
-    group_lists = get_groups_from_alphas(supernet) 
-
+    if config.grouping == 'alpha': 
+        group_lists = get_groups_from_alphas(supernet) 
+    else:
+        assert isinstance(config.grouping, List)
+        group_lists = config.grouping * len(supernet.edge2index)
+        
     stages = int(np.ceil(np.log2(len(NAS_BENCH_201))))
-    # check whether edge is single path or not? 
     model_flag, edge_flag = check_single_path_model(supernet)
     stage = -1
 
@@ -369,7 +373,7 @@ def main(config):
     while (not model_flag):
         stage += 1
         edge_to_decide = [i for i, x in enumerate(edge_flag) if not x]
-        if 'random' in config.order:
+        if 'random' in config.branching:
             np.random.shuffle(edge_to_decide)
         logger.log(f'edge to decide is {edge_to_decide}')
         steps = int(np.ceil(len(edge_to_decide) / depth))
@@ -547,7 +551,8 @@ if __name__ == "__main__":
             config.data.dataset,
             config.algo,
             f'd_a{config.d_a}', f'd_o{config.d_o}',
-            f'order_{config.order}',
+            f'branching_{config.branching}',
+            f'grouping_{str(config.grouping)}', 
             f'{config.metric}',
             f'WE{config.warmup_epochs}', f'WBS{config.warmup_batch_size}',
             f'DE{config.decision_epochs}', f'BS{config.train_batch_size}',
@@ -556,8 +561,6 @@ if __name__ == "__main__":
         tags.append(str(config.note))
     if config.re_init:
         tags.append('reinit')
-    if config.group:
-        tags.append('group')
     tags.append(f'Seed{config.rand_seed}')
     generate_exp_directory(config, tags)
     config.wandb.tags = tags
