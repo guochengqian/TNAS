@@ -28,13 +28,12 @@ This code is highly relied on [NATS-Bench](https://github.com/D-X-Y/AutoDL-Proje
 ## Citation
 If you find that this project helps your research, please consider citing the related paper:
 ```
-@article{dong2021nats,
-  title   = {{NATS-Bench}: Benchmarking NAS Algorithms for Architecture Topology and Size},
-  author  = {Dong, Xuanyi and Liu, Lu and Musial, Katarzyna and Gabrys, Bogdan},
-  doi     = {10.1109/TPAMI.2021.3054824},
-  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence (TPAMI)},
-  year    = {2021},
-  note    = {\mbox{doi}:\url{10.1109/TPAMI.2021.3054824}}
+@inproceedings{qian2022meets,
+  title={When NAS Meets Trees: An Efficient Algorithm for Neural Architecture Search},
+  author={Qian, Guocheng and Zhang, Xuanyang and Li, Guohao and Zhao, Chen and Chen, Yukang and Zhang, Xiangyu and Ghanem, Bernard and Sun, Jian},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={2782--2787},
+  year={2022}
 }
 ```
 
