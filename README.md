@@ -1,5 +1,9 @@
 # TNAS
+Official Pytorch Implementation of 
+When NAS Meets Trees: An Efficient Algorithm for Neural Architecture Search
 
+WARNING: this is not the final version. But a demo version. 
+We are still working on this project in part time to push it for a conference or journal. After the paper gets accepted, the final version will be released. 
 
 ## Install 
 ```
